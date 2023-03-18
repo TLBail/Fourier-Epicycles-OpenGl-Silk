@@ -1,0 +1,51 @@
+#version 330 core
+layout (points) in;
+layout (triangle_strip, max_vertices = 256) out;
+in VS_OUT {
+    vec3 color;
+    float radius;
+} gs_in[];  
+out vec3 fColor;  
+
+
+layout (std140) uniform World{
+    mat4 projection;
+    mat4 view;
+};
+
+
+const float PI = 3.14159265358979323846;
+
+void build_circle(vec4 position)
+{   
+    fColor = gs_in[0].color;
+    int lineAmount = 85;
+    float twicePi = 2.0 * PI;
+    float ang = 0 * twicePi / lineAmount ;
+    vec4 previousPosition = position + vec4(gs_in[0].radius *  cos(ang) ,gs_in[0].radius * sin(ang) , 0.0, 0.0);
+    previousPosition = projection * view * previousPosition;
+    for(int i = 1; i <= lineAmount;i++){
+        //center 
+        gl_Position = projection * view* position;
+        
+        EmitVertex();
+        
+        gl_Position = previousPosition; 
+        EmitVertex();
+        
+        ang = i * twicePi / lineAmount ;
+        gl_Position = position + vec4(gs_in[0].radius *  cos(ang) ,gs_in[0].radius * sin(ang) , 0.0, 0.0); 
+        gl_Position = projection * view * gl_Position;    
+        previousPosition = gl_Position;
+        EmitVertex();
+                    
+        EndPrimitive();       
+            
+    }
+}
+
+
+
+void main() {    
+    build_circle(gl_in[0].gl_Position);
+} 
