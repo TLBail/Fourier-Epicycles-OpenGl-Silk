@@ -74,7 +74,7 @@ public class Circle : IDisposable
         updateData();
     }
 
-    private const int NBVERTEX = 100;
+    private const int NBVERTEX = 10000;
     
     
     private unsafe void updateData() {

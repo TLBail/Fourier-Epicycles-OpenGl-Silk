@@ -1,5 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Numerics;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Xml.Linq;
 using ImGuiNET;
 using Silk.NET.Input;
 using Silk.NET.Maths;
@@ -17,22 +20,22 @@ public class Anim
     private Camera camera;
     private DebugRay debugRay;
     private Line waveLine;
-    private List<float> wave = new List<float>();
+    private List<Vector2D<float>> wave = new List<Vector2D<float>>();
     private float lineOffset = 0;
-    private int nbPoints = 2000;
-    private float lengthWave = 4.0f;
     private Line pointToWaveLine;
     private List<Circle> circles = new List<Circle>();
-    private int nbCirlces = 5;
-    private float sizeCircles = 1;
-    private int wantedNbCircles = 5;
+    private List<Circle> circles2 = new List<Circle>();
     private Stopwatch stopwatchUpdate = new Stopwatch();
+    private float speed = 1;
+    private Line pointToWaveLine2;
 
-    public static readonly float[] signal = {
-        1.0f,1.0f,1.0f,-1.0f,-1.0f,-1.0f,1.0f,1.0f,1.0f,-1.0f,-1.0f,-1.0f
-    };
-
-    public Fourier.Component[] dft;
+    private class JsonPath
+    {
+        public float[] path { get; set; }
+    }
+    
+    public Fourier.Component[] fourierX;
+    public Fourier.Component[] fourierY;
     
     public Anim(OpenGl openGl) {
         this.openGl = openGl;
@@ -40,14 +43,27 @@ public class Anim
         openGl.UpdateEvent += Update;
         openGl.LoadEvent += Load; 
         openGl.OnCloseEvent += Stop;
+        
+        string json = File.ReadAllText("Assets/path.json");
+        JsonPath jsonPath = JsonSerializer.Deserialize<JsonPath>(json);
+        
+        float min = jsonPath.path.Min();
+        float max = jsonPath.path.Max();
+        float[] signal2 = new float[jsonPath.path.Length / 2];
+        float[] signal3 = new float[jsonPath.path.Length / 2];
 
         
+        int j = 0;
+        for (int i = 0; i < jsonPath.path.Length / 2; i++) { 
+            signal2[i] = Mapper(jsonPath.path[j], min, max, -2, 2);
+            j++;
+            signal3[i] = -Mapper(jsonPath.path[j], min, max, -2, 2);
+            j++;
+        }
         
-        dft = Fourier.dft(signal);
         
-        Console.WriteLine(String.Join(",",dft) );
-        nbCirlces = dft.Length;
-        wantedNbCircles = nbCirlces;
+        fourierX = Fourier.dft(signal2);
+        fourierY = Fourier.dft(signal3);
         openGl.Run();
     }
 
@@ -55,16 +71,23 @@ public class Anim
 
     private  void Load(GL gl) {
         camera = new Camera(openGl.window);
-        camera.Position = new Vector3(1, 0, 3);
+        camera.Position = new Vector3(0, 0, 8);
         
         
         
-        for (int i = 0; i < nbCirlces; i++) {
-            circles.Add(new Circle(openGl, new Vector3D<float>(-2,0,0),
+        for (int i = 0; i < fourierX.Length; i++) {
+            circles.Add(new Circle(openGl, new Vector3D<float>(0,0,0),
                 new Vector3D<float>(1, 0, 0),
                 false,
                 0.4f));   
         }
+        for (int i = 0; i < fourierY.Length; i++) {
+            circles2.Add(new Circle(openGl, new Vector3D<float>(0,0,0),
+                new Vector3D<float>(1, 0, 0),
+                false,
+                0.4f));   
+        }
+
         
         
         circleFilled = new Circle(openGl,
@@ -77,68 +100,63 @@ public class Anim
             new Vector3D<float>(1, -1, 0),
             new Vector3D<float>(1, 1, 0),
             new Vector3D<float>(1, 1, 0));
+        
+        
         pointToWaveLine = new Line(openGl, Vector3D<float>.Zero, Vector3D<float>.Zero, new Vector3D<float>(12, 1, 42));
+        pointToWaveLine2 = new Line(openGl, Vector3D<float>.Zero, Vector3D<float>.Zero, new Vector3D<float>(12, 1, 42));
+
     }
 
 
+    private Vector2D<float> epicycle(List<Circle> epiCircle, float x, float y, float rotation, Fourier.Component[] fourier) {
+        for (int i = 0; i < fourier.Length; i++) {
+            float prevX = x;
+            float prevY = y;
+            float freq = fourier[i].frequency;
+            float radius = fourier[i].amplitude;
+            float phase = fourier[i].phase;
+            x += radius * MathF.Cos((float)(freq * time + phase + rotation));
+            y += radius * MathF.Sin((float)(freq * time + phase + rotation));
+            epiCircle[i].position = new Vector3D<float>(prevX, prevY, 0);
+            epiCircle[i].radius = radius;
+        }
+
+        return new(x,y);
+    }
 
     private  void Update(double deltatime) {
         stopwatchUpdate.Restart();
-        int i = 0;
-        // if (wantedNbCircles > circles.Count) {
-        //     int nbCircleToAdd = wantedNbCircles - circles.Count;
-        //     for (i = 0; i < nbCircleToAdd ; i++) {
-        //         circles.Add(new Circle(openGl, Vector3D<float>.Zero, new Vector3D<float>(1, 0, 0), false, 0.4f));
-        //     }
-        // }
-        // nbCirlces = wantedNbCircles;
-     
+        var pos = epicycle(circles, 1, 1, 0, fourierX);
+        var pos2 = epicycle(circles2, -2, -1, Single.Pi / 2, fourierY);
+        Vector2D<float> vector = new Vector2D<float>(pos.X, pos2.Y); 
+        circleFilled.position = new Vector3D<float>(pos.X, pos.Y, 0.0f);
         
-        float x = 0;
-        float y = 0;
-        float freq = 0;
-        float radius = 0;
-        float phase = 0;
-        float prevX = 0;
-        float prevY = 0;
-        for (i = 0; i < dft.Length; i++) {
-            prevX = x;
-            prevY = y;
-            // freq = dft[i ].frequency;
-            // radius = dft[i].amplitude;
-            // phase = dft[i].phase;
-
-            float n = 2 * i + 1;
-            freq = n;
-            radius = (4 / (float)((n) * MathF.PI));
-            phase = 0;
-            x += radius * MathF.Cos(freq * (float)(time + phase));
-            y += radius * MathF.Sin(freq * (float)(time + phase));
-            circles[i].position = new Vector3D<float>((float)prevX, (float)prevY, 0.0f);
-            circles[i].radius = (float)radius;
-
-        }
-        
-        circleFilled.position = circles[dft.Length - 1].position;
-        
-        wave.Insert(0, (float)y);
-        if (wave.Count > nbPoints) {
-            wave.RemoveRange(nbPoints, wave.Count  -nbPoints  );
+        wave.Insert(0, vector);
+        if (wave.Count > fourierX.Length) {
+            wave.Clear();
         }
 
         Vector3D<float>[] points = new Vector3D<float>[wave.Count()];
-        for (i = 0; i < wave.Count; i++) {
-            points[i] = new Vector3D<float>( lengthWave*i / nbPoints + 2, wave[i], 0.0f);
+        for (int i = 0; i < wave.Count; i++) {
+            points[i] = new Vector3D<float>( wave[i].X, wave[i].Y, 0.0f);
         }
         waveLine.points = points.ToArray();
 
         pointToWaveLine.points = new[]
         {
             circleFilled.position,
-            new Vector3D<float>(2, (float)y, 0)
+            new Vector3D<float>(vector.X, vector.Y, 0)
         };
-        double speed = 0.01;
-        time +=speed *2 *MathF.PI * (float)signal.Length * deltatime;
+        
+        pointToWaveLine2.points = new[]
+        {
+            new Vector3D<float>(pos2.X, pos2.Y, 0),
+            new Vector3D<float>(vector.X, vector.Y, 0)
+        };
+
+        double dt = Math.PI * 2 / fourierX.Length;
+        
+        time += dt * speed;
         stopwatchUpdate.Stop();
     }
 
@@ -153,18 +171,24 @@ public class Anim
         ImGui.Text( (1000.0f / ImGui.GetIO().Framerate).ToString("F") +  " ms/frame ( "+ ImGui.GetIO().Framerate.ToString("F1") + " FPS)" );
         ImGui.Text( stopwatchUpdate.ElapsedMilliseconds.ToString() + " ms/update" );
 
-        ImGui.SliderInt("nbPoints", ref nbPoints, 10, 10000);
-        ImGui.SliderFloat("lenghtWave", ref lengthWave, 0.0f, 5.0f);
-        ImGui.SliderFloat("sizeCircles", ref sizeCircles, 0.0f, 5.0f);
-        // ImGui.DragInt("nbCircles ", ref wantedNbCircles,1 );
+        ImGui.DragFloat("speed", ref speed, 1.0f);
 
         if(ImGui.DragFloat("cameraZ", ref cameraZ, 1.0f)) camera.Position = new Vector3(0, 0, cameraZ);
         ImGui.End();
 
-        Circle.DrawAll(gl, (uint)nbCirlces);
+        for (int i = 0; i < fourierX.Length; i++) {
+            circles[i].Draw(gl);            
+        }
+
+        for (int i = 0; i < fourierX.Length; i++) {
+            circles2[i].Draw(gl);
+        }
+        
+        
         circleFilled.Draw(gl);
         waveLine.Draw(gl);
         pointToWaveLine.Draw(gl);
+        pointToWaveLine2.Draw(gl);
 
         // ImGui.ShowDemoWindow();
     }
@@ -173,14 +197,12 @@ public class Anim
         
         gl.BindBuffer(BufferTargetARB.UniformBuffer, openGl.uboWorld);
         System.Numerics.Matrix4x4 projectionMatrix = camera.GetProjectionMatrix();
-        // projectionMatrix = Matrix4x4.Identity;
         gl.BufferSubData(BufferTargetARB.UniformBuffer, 0, (uint)sizeof(System.Numerics.Matrix4x4), projectionMatrix);
         gl.BindBuffer(BufferTargetARB.UniformBuffer, 0);
 
 
         gl.BindBuffer(BufferTargetARB.UniformBuffer, openGl.uboWorld);
         System.Numerics.Matrix4x4 viewMatrix = camera.GetViewMatrix();
-        // viewMatrix = Matrix4x4.Identity;
         gl.BufferSubData(BufferTargetARB.UniformBuffer, sizeof(System.Numerics.Matrix4x4), (uint)sizeof(System.Numerics.Matrix4x4), viewMatrix);
         gl.BindBuffer(BufferTargetARB.UniformBuffer, 0);
 
@@ -199,6 +221,10 @@ public class Anim
             circles[0].Dispose();
         }
         waveLine.Dispose();
+    }
+    public static float Mapper(float valeur, float debut1, float fin1, float debut2, float fin2)
+    {
+        return debut2 + (valeur - debut1) * (fin2 - debut2) / (fin1 - debut1);
     }
     
 }

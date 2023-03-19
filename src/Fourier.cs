@@ -6,25 +6,29 @@ public static class Fourier
 {
     public struct Component
     {
+        public float real;
+        public float img;
         public float frequency;
         public float amplitude;
         public float phase;
 
-        public Component(float frequency, float amplitude, float phase) {
+        public Component(float real, float img, float frequency, float amplitude, float phase) {
+            this.real = real;
+            this.img = img;
             this.frequency = frequency;
             this.amplitude = amplitude;
             this.phase = phase;
         }
 
         public override string ToString() {
-            return "(" + frequency + "|" + amplitude + "|" + phase + ")";
+            return "("+ real+ "|" + img + "|" + frequency + "|" + amplitude + "|" + phase + ")";
         }
     }
     
     public static Component[] dft(float[] x) {
         Component[] X = new Component[x.Length];
         const float pi2 = 2 * MathF.PI;
-        int N = x.Length;
+        float N = x.Length;
         for (int k = 0; k < N; k++) {
 
             float real = 0;
@@ -35,13 +39,13 @@ public static class Fourier
                 img -= x[n] * MathF.Sin(phi);
             }
 
-            real = real / N;
-            img = img / N;
+            real /= (float)N;
+            img /= (float)N;
 
-            float magnitude = MathF.Sqrt(real * real + img * img);
+            float amplitude = MathF.Sqrt((real * real) + (img * img));
             float phase = MathF.Atan2(img, real);
             
-            X[k] = new Component(k, magnitude, phase);
+            X[k] = new Component(real, img, k, amplitude, phase);
         }
         return X;
     }
