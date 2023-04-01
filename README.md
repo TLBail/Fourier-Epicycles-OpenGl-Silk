@@ -5,3 +5,5 @@ Ce projet est une animation en C# utilisant la bibliothèque graphique OpenGl et
 ## Prérequis
 - Visual Studio (ou tout autre environnement de développement C#)
 - NuGet Package Manager pour installer les packages nécessaires
+
+![image](https://github.com/TLBail/Fourier-Epicycles-OpenGl-Silk/blob/master/epicycle.GIF?raw=true)
