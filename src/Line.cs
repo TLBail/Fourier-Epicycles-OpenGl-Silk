@@ -42,11 +42,11 @@ public class Line
     public Vector3D<float> color;
 
 
-    public Line(OpenGl openGl,Vector3D<float> start, Vector3D<float> end, Vector3D<float> color) : this(openGl, new []{start, end}, color){
+    public Line(Vector3D<float> start, Vector3D<float> end, Vector3D<float> color) : this( new []{start, end}, color){
     }
     
-    public Line(OpenGl gl, Vector3D<float>[] points, Vector3D<float> color) {
-        this.openGl = gl;
+    public Line( Vector3D<float>[] points, Vector3D<float> color) {
+        this.openGl = OpenGl.Instance();
         this._points = points;
         this.color = color;
         if (shaderSetup == false) {

@@ -11,10 +11,8 @@ using Window = Silk.NET.Windowing.Window;
 
 public class Program
 {
-    private static OpenGl openGl;
     public static void Main(string[] args) {
-        openGl = new OpenGl();
-        Anim anim = new Anim(openGl);
+        Anim anim = new Anim();
     }
 
 

@@ -1,15 +1,13 @@
-﻿using System.Numerics;
-using Silk.NET.Maths;
+﻿using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 
 namespace SilkCircle;
 
-public class Circle : IDisposable
+public class CircleFilled : IDisposable
 {
     private bool filled;
     private static bool shaderSetup = false;
     private static Shader shaderFilled;
-    private static Shader shaderUnfilled;
     private static VertexArrayObject<PointStruct, uint> vao;
     private static BufferObject<PointStruct> vbo;
     private static uint nextVertexIndex = 0;
@@ -59,9 +57,8 @@ public class Circle : IDisposable
         }
     }
 
-    public Circle(OpenGl openGl,Vector3D<float> position, Vector3D<float> color, bool filled, float radius = 0.1f) {
-        this.filled = filled;
-        this.openGl = openGl;
+    public CircleFilled(Vector3D<float> position, Vector3D<float> color, float radius = 0.1f) {
+        this.openGl = OpenGl.Instance();
         this._radius = radius;
         this._position = position;
         this._color = color;
@@ -95,30 +92,24 @@ public class Circle : IDisposable
         vao.VertexAttributePointer(2, 1, VertexAttribPointerType.Float, "radius");
 
         
-        shaderUnfilled = new Shader(openGl.Gl, "Assets/circleUnfilled.vertexShader","Assets/circleUnfilled.geometryShader", "Assets/circleUnfilled.fragmentShader");
         shaderFilled = new Shader(openGl.Gl, "Assets/circleFilled.vertexShader","Assets/circleFilled.geometryShader", "Assets/circleFilled.fragmentShader");
         openGl.OnCloseEvent += () =>
         {
             shaderFilled.Dispose();
-            shaderUnfilled.Dispose();
         };
 
     }
 
     public void Draw(GL gl) {
         vao.Bind();
-        if (filled) {
-            shaderFilled.Use();
-        } else {
-            shaderUnfilled.Use();
-        }
+        shaderFilled.Use();
         gl.DrawArrays(PrimitiveType.Points, (int)vertexIndex, 1);
     }
     
-    public static void DrawAll(GL gl, uint nbCircle) {
+    public static void DrawAll(GL gl) {
         vao.Bind();
-        shaderUnfilled.Use();
-        gl.DrawArrays(PrimitiveType.Points, 0, nbCircle);
+        shaderFilled.Use();
+        gl.DrawArrays(PrimitiveType.Points, 0, nextVertexIndex);
     }
     
 

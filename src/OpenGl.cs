@@ -9,9 +9,25 @@ using Silk.NET.Windowing;
 
 namespace SilkCircle;
 
-public class OpenGl
+public sealed class OpenGl
 {
-    public IWindow window { get; private set; }
+
+    private static OpenGl _instance;
+    public static readonly object _lock = new object();
+    public static OpenGl Instance()
+    {
+        if (_instance == null) {
+            lock (_lock) {
+                if (_instance == null) {
+                    _instance = new OpenGl();
+                }
+            }
+        }
+        return _instance;
+    }
+
+    
+    public IWindow window { get; private set; } 
     public IInputContext input { get; private set; }
     public GL Gl { get; private set; }
     public IKeyboard primaryKeyboard { get; private set; }
@@ -22,25 +38,19 @@ public class OpenGl
     private static readonly Color CLEAR_COLOR = Color.Black;
 
     private Glfw glfw;
-
+    
     private bool running = true;
-
     public delegate void LoadDelegate(GL gl);
-
     public delegate void DrawDelegate(GL gl);
-
     public delegate void UpdateDelegate(double deltaTime);
-
     public uint uboWorld;
     public Vector2D<int> screenSize;
-
     public LoadDelegate LoadEvent;
     public UpdateDelegate UpdateEvent;
     public DrawDelegate DrawEvent;
     public Action OnCloseEvent;
 
-
-    public OpenGl() {
+    private OpenGl() {
         screenSize = new Vector2D<int>(1920, 1080);
         
         //Create a window.
